@@ -7,6 +7,11 @@ last one.
 
 ## [Unreleased]
 
+### Fixed
+- Copy, paste, cut, select all and undo (Command-C, V, X, A, Z) now work in Settings and in the
+  notch's Notes. The app has no menu bar of its own, so macOS had no Edit menu to send them to; it
+  now has one that is never shown.
+
 ### Changed
 - The installer disk is named after its version ("Dynamic Ledge 1.4.4 Installer"), so it isn't
   mistaken for the app in Finder's sidebar and two open disks don't end up with the same name.
