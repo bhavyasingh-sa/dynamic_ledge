@@ -22,8 +22,13 @@ struct GlassSurface: View, Animatable {
         ZStack(alignment: .topLeading) {
             if opacity > 0.001 {
                 if amount > 0.001 {
-                    glass
-                        .opacity(amount)
+                    // Fully open, the glass is drawn as it is: an opacity wrapper, even at 1, would
+                    // make it draw as a flat copy and lose the bending at its edges.
+                    if amount >= 0.999 {
+                        glass
+                    } else {
+                        glass.opacity(amount)
+                    }
                     ZStack(alignment: .topLeading) {
                         if Self.usesLiquidGlass {
                             tintShade
@@ -82,17 +87,17 @@ struct GlassSurface: View, Animatable {
     /// How dark the glass is laid over: a light touch when clear, enough to read white text over a
     /// bright window when fully tinted. The system's own `tint` only colours the glass and does
     /// not darken it, so this is a separate layer on top.
-    private var glassTintOpacity: Double { 0.04 + 0.56 * tint }
+    private var glassTintOpacity: Double { 0.56 * tint }
     /// How far below the camera housing the black fades into glass.
     private static let cameraFade: CGFloat = 22
 
     @ViewBuilder
     private var glass: some View {
         if #available(macOS 26.0, *) {
-            // Liquid Glass: frosts and brightens what's behind, bends it at the edges and catches
-            // the light along them, all drawn by the system.
+            // Liquid Glass, the clear style: it keeps the colours behind it and bends them at the
+            // edges, all drawn by the system.
             Color.clear
-                .glassEffect(.regular, in: pillShape)
+                .glassEffect(.clear, in: pillShape)
                 .placed(in: layout.pill)
         } else {
             FrostedGlass(shape: pillShape)
@@ -107,23 +112,43 @@ struct GlassSurface: View, Animatable {
             .placed(in: layout.pill)
     }
 
-    /// A thin, soft light along the sides and bottom, where glass catches the light. The system's
-    /// own edge is barely visible in a panel that is never the key window.
+    /// Light on the edge, from the top left and the bottom right the way glass catches it: a crisp
+    /// rim and a soft glow just inside it. The system's own edge is barely visible in a panel that
+    /// is never the key window.
     private var specularEdge: some View {
         let height = max(layout.pill.height, 1)
         let band = min(1, (layout.notchBand + 8) / height)
-        return LinearGradient(
+        // Keeps the light off the camera housing: it starts below it.
+        let belowCamera = LinearGradient(
             stops: [
-                .init(color: .white.opacity(0), location: 0),
-                .init(color: .white.opacity(0), location: band),
-                .init(color: .white.opacity(0.26), location: min(1, band + 0.12)),
-                .init(color: .white.opacity(0.12), location: 0.7),
-                .init(color: .white.opacity(0.34), location: 1),
+                .init(color: .clear, location: 0),
+                .init(color: .clear, location: band),
+                .init(color: .white, location: min(1, band + 0.1)),
             ],
             startPoint: .top,
             endPoint: .bottom
         )
-        .mask(pillShape.stroke(lineWidth: 1.2))
+        let light = LinearGradient(
+            stops: [
+                .init(color: .white.opacity(0.5), location: 0),
+                .init(color: .white.opacity(0.07), location: 0.3),
+                .init(color: .white.opacity(0.04), location: 0.55),
+                .init(color: .white.opacity(0.45), location: 1),
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+        return ZStack {
+            // A faint dark line on the very edge, which the light rim sits against.
+            pillShape.stroke(Color.black.opacity(0.22), lineWidth: 2)
+            pillShape
+                .stroke(light, lineWidth: 6)
+                .blur(radius: 3)
+                .opacity(0.3)
+                .clipShape(pillShape)
+            pillShape.stroke(light, lineWidth: 1)
+        }
+        .mask(belowCamera)
         .placed(in: layout.pill)
     }
 
