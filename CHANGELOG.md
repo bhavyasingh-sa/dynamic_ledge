@@ -8,6 +8,9 @@ last one.
 ## [Unreleased]
 
 ### Changed
+- On macOS 26 and later the Glass theme is real Liquid Glass: see-through and picking up the
+  colours behind it, with only the camera area kept black and a soft light along its edge. The
+  Clear to Tinted slider now darkens the glass, so it can be set for bright windows.
 - The installer disk is named after its version ("Dynamic Ledge 1.4.4 Installer"), so it isn't
   mistaken for the app in Finder's sidebar and two open disks don't end up with the same name.
 - Opening the installer shows an arrow from Dynamic Ledge to Applications, with a line saying to

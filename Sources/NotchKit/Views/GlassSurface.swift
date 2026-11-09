@@ -25,8 +25,14 @@ struct GlassSurface: View, Animatable {
                     glass
                         .opacity(amount)
                     ZStack(alignment: .topLeading) {
-                        smoke
-                        rim
+                        if Self.usesLiquidGlass {
+                            tintShade
+                            cameraShade
+                            specularEdge
+                        } else {
+                            smoke
+                            rim
+                        }
                     }
                     .opacity(opacity * amount)
                 }
@@ -67,16 +73,79 @@ struct GlassSurface: View, Animatable {
     /// Where the fade starts, as a share of the height: the last stretch is the frosted lip.
     private static let fadeStart = 0.62
 
+    /// Whether this Mac has Apple's Liquid Glass (macOS 26 and later). There the panel is real
+    /// glass, with only the camera kept black; before that it is smoked glass over a blur.
+    private static var usesLiquidGlass: Bool {
+        if #available(macOS 26.0, *) { true } else { false }
+    }
+
+    /// How dark the glass is laid over: a light touch when clear, enough to read white text over a
+    /// bright window when fully tinted. The system's own `tint` only colours the glass and does
+    /// not darken it, so this is a separate layer on top.
+    private var glassTintOpacity: Double { 0.04 + 0.56 * tint }
+    /// How far below the camera housing the black fades into glass.
+    private static let cameraFade: CGFloat = 22
+
     @ViewBuilder
     private var glass: some View {
         if #available(macOS 26.0, *) {
-            // Liquid Glass: frosts and brightens what's behind, and bends it at the edges.
+            // Liquid Glass: frosts and brightens what's behind, bends it at the edges and catches
+            // the light along them, all drawn by the system.
             Color.clear
                 .glassEffect(.regular, in: pillShape)
                 .placed(in: layout.pill)
         } else {
             FrostedGlass(shape: pillShape)
                 .placed(in: layout.pill)
+        }
+    }
+
+    /// The tint slider: an even dark layer over the glass.
+    private var tintShade: some View {
+        Color.black.opacity(glassTintOpacity)
+            .clipShape(pillShape)
+            .placed(in: layout.pill)
+    }
+
+    /// A thin, soft light along the sides and bottom, where glass catches the light. The system's
+    /// own edge is barely visible in a panel that is never the key window.
+    private var specularEdge: some View {
+        let height = max(layout.pill.height, 1)
+        let band = min(1, (layout.notchBand + 8) / height)
+        return LinearGradient(
+            stops: [
+                .init(color: .white.opacity(0), location: 0),
+                .init(color: .white.opacity(0), location: band),
+                .init(color: .white.opacity(0.26), location: min(1, band + 0.12)),
+                .init(color: .white.opacity(0.12), location: 0.7),
+                .init(color: .white.opacity(0.34), location: 1),
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .mask(pillShape.stroke(lineWidth: 1.2))
+        .placed(in: layout.pill)
+    }
+
+    /// Black over the camera housing, so the notch itself never shows through, then a short fade
+    /// into the glass. Screens without a notch have nothing to hide, so the glass stays clear.
+    @ViewBuilder
+    private var cameraShade: some View {
+        if layout.notchBand > 0.5 {
+            let height = max(layout.pill.height, 1)
+            let band = min(1, layout.notchBand / height)
+            let fadeEnd = min(1, (layout.notchBand + Self.cameraFade) / height)
+            LinearGradient(
+                stops: [
+                    .init(color: .black, location: 0),
+                    .init(color: .black, location: band),
+                    .init(color: .black.opacity(0), location: max(band, fadeEnd)),
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .clipShape(pillShape)
+            .placed(in: layout.pill)
         }
     }
 
