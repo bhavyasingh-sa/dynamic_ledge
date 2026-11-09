@@ -8,6 +8,13 @@ last one.
 ## [Unreleased]
 
 ### Changed
+- On macOS 26 and later the Glass theme is real Liquid Glass: see-through and picking up the
+  colours behind it, all the way up to the top edge, with soft dark fades in the two top corners
+  where the notch's shoulders curve out. The Clear to Tinted slider now darkens the glass, so it
+  can be set for bright windows.
+- To show real glass (clear, with what is behind it bending at the edges) the Glass theme's
+  panel becomes the key window as it opens, and keeps that while it is open.
+  The app you were in stays in front. The first key pressed meanwhile is handed back to that app.
 - The installer disk is named after its version ("Dynamic Ledge 1.4.4 Installer"), so it isn't
   mistaken for the app in Finder's sidebar and two open disks don't end up with the same name.
 - Opening the installer shows an arrow from Dynamic Ledge to Applications, with a line saying to
