@@ -41,7 +41,7 @@ struct ElongatedHomeBody: View {
     }
 
     enum Widget: Hashable {
-        case music, mirror, calendar, notes, timer, todos, stats
+        case music, mirror, calendar, notes, timer, todos, stats, shortcuts, tiles
 
         /// Width before Small / Medium / Large scaling.
         var width: CGFloat {
@@ -53,12 +53,37 @@ struct ElongatedHomeBody: View {
             case .timer: 250
             case .todos: 230
             case .stats: 210
+            case .shortcuts: 200
+            case .tiles: 280
             }
         }
     }
 
-    /// The widgets that are switched on, in reading order.
+    /// The widgets that are switched on, in reading order: the user's own order once they have
+    /// chosen one (Settings › Home), otherwise the built-in one.
     static func widgets(for model: IslandModel) -> [Widget] {
+        model.settings.homeCustomized ? chosenWidgets(for: model) : builtInWidgets(for: model)
+    }
+
+    private static func chosenWidgets(for model: IslandModel) -> [Widget] {
+        var widgets: [Widget] = []
+        for item in model.settings.homeLayout.visibleItems {
+            switch item {
+            case .live: if model.homeHasMedia { widgets.append(.music) }
+            case .calendar: if model.settings.calendarEnabled { widgets.append(.calendar) }
+            case .timer: if model.settings.timerEnabled { widgets.append(.timer) }
+            case .shortcuts: if !model.favoriteShortcuts.isEmpty { widgets.append(.shortcuts) }
+            case .tiles: if !model.settings.homeTiles.isEmpty { widgets.append(.tiles) }
+            case .mirror: if model.settings.mirrorEnabled { widgets.append(.mirror) }
+            case .notes: if model.settings.notesEnabled { widgets.append(.notes) }
+            case .todos: widgets.append(.todos)
+            case .stats: if model.settings.statsEnabled { widgets.append(.stats) }
+            }
+        }
+        return widgets
+    }
+
+    private static func builtInWidgets(for model: IslandModel) -> [Widget] {
         var widgets: [Widget] = []
         if model.homeHasMedia { widgets.append(.music) }
         if model.settings.mirrorEnabled { widgets.append(.mirror) }
@@ -80,6 +105,10 @@ struct ElongatedHomeBody: View {
         case .timer: TimerWidget(model: model)
         case .todos: TodosWidget(model: model)
         case .stats: StatsWidget(model: model)
+        case .shortcuts:
+            ShortcutsSection(model: model, compact: false)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        case .tiles: HomeTilesWidget(model: model)
         }
     }
 }

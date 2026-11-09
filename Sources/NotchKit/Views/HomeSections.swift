@@ -13,6 +13,8 @@ enum HomeSection: Hashable, Identifiable {
     /// The clocks running now (timer, stopwatch), shown above the presets.
     case timer(running: [LiveItem])
     case shortcuts
+    /// The user's own tiles (Settings › Home).
+    case tiles
     /// No room for both on their own, so they share the last section.
     case timerAndShortcuts
 
@@ -38,10 +40,53 @@ enum HomeSection: Hashable, Identifiable {
         case .calendar: "calendar"
         case .timer, .timerAndShortcuts: "timer"
         case .shortcuts: "shortcuts"
+        case .tiles: "tiles"
         }
     }
 
     @MainActor static func sections(for model: IslandModel) -> [HomeSection] {
+        model.settings.homeCustomized ? chosenSections(for: model) : builtInSections(for: model)
+    }
+
+    /// Home as the user arranged it: the items they left on, in their order. The elongated row
+    /// has items this layout has no room for; they are skipped here.
+    @MainActor private static func chosenSections(for model: IslandModel) -> [HomeSection] {
+        let active = model.activeActivities
+        var live: [LiveItem] = []
+        if active.contains(.call) { live.append(.call) }
+        if model.homeHasMedia { live.append(.music) }
+        var clocks: [LiveItem] = []
+        if active.contains(.timer) { clocks.append(.timer) }
+        if active.contains(.stopwatch) { clocks.append(.stopwatch) }
+
+        var sections: [HomeSection] = []
+        for item in model.settings.homeLayout.visibleItems {
+            switch item {
+            case .live:
+                if !live.isEmpty { sections.append(.live(live)) }
+            case .calendar:
+                if model.showsCalendarRow { sections.append(.calendar) }
+            case .timer:
+                // A running clock still shows, even if the Timer feature is off.
+                if model.settings.timerEnabled || !clocks.isEmpty { sections.append(.timer(running: clocks)) }
+            case .shortcuts:
+                if !model.favoriteShortcuts.isEmpty { sections.append(.shortcuts) }
+            case .tiles:
+                if !model.settings.homeTiles.isEmpty { sections.append(.tiles) }
+            case .mirror, .notes, .todos, .stats:
+                break
+            }
+        }
+        // Too many: Timer and Shortcuts share one section, as they do in the built-in Home.
+        if sections.count > maximum, clocks.isEmpty,
+           let timer = sections.firstIndex(of: .timer(running: [])), let shortcuts = sections.firstIndex(of: .shortcuts) {
+            sections[timer] = .timerAndShortcuts
+            sections.remove(at: shortcuts)
+        }
+        return Array(sections.prefix(maximum))
+    }
+
+    @MainActor private static func builtInSections(for model: IslandModel) -> [HomeSection] {
         let active = model.activeActivities
         var live: [LiveItem] = []
         if active.contains(.call) { live.append(.call) }
@@ -129,6 +174,9 @@ struct StandardHomeBody: View {
         case .shortcuts:
             ShortcutsSection(model: model, compact: false)
                 .sectionFrame()
+        case .tiles:
+            HomeTilesSection(model: model)
+                .sectionFrame()
         case .timerAndShortcuts:
             VStack(alignment: .leading, spacing: 12 * s) {
                 TimerSection(model: model, compact: true)
@@ -146,7 +194,7 @@ private extension View {
 }
 
 /// A section's name, with a chevron when clicking it opens more.
-private struct SectionHeader: View {
+struct SectionHeader: View {
     let symbol: String
     let tint: Color
     let title: LocalizedStringKey
@@ -573,7 +621,7 @@ private struct TimerSection: View {
 // MARK: Shortcuts
 
 /// The favourite shortcuts, one tap to run. Compact shows only the first.
-private struct ShortcutsSection: View {
+struct ShortcutsSection: View {
     let model: IslandModel
     let compact: Bool
     @Environment(\.notchScale) private var s
