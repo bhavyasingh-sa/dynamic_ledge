@@ -7,12 +7,33 @@ last one.
 
 ## [Unreleased]
 
+### Added
+- Choose what Home shows. In Settings › Appearance, under Home layout, switch each item (music
+  and calls, calendar, timer, shortcuts, mirror, notes, to-dos, stats) on or off and put them in
+  your order. Both the standard and the elongated layout follow it. Home stays as it was until you
+  change something, and "Reset Home to the default" puts it back.
+- Your own tiles on Home: a button that opens one of the app's features (Clipboard, Files,
+  Notes, Mirror, Keep Awake and the rest), an app, a website or a folder, or runs a Shortcut, with
+  a name and an icon. An app's tile shows that app's own icon, and a feature that is on shows it.
+  Up to six; with more than three they show as icons, with the name on hover. A website tile has
+  a Paste button for the link you copied, which also fills in the site's name.
+
+### Fixed
+- The brightness indicator in the notch now shows only when you change brightness with the keys,
+  as Apple's own does, and no longer when automatic brightness adjusts it. It also went away too
+  late; it now stays for one second instead of 1.6. Before, a key pressed right after the opposite
+  one could be missed.
+- Copy, paste, cut, select all and undo (Command-C, V, X, A, Z) now work in Settings and in the
+  notch's Notes. The app has no menu bar of its own, so macOS had no Edit menu to send them to; it
+  now has one that is never shown.
+
 ### Changed
 - On macOS 26 and later the Glass theme is real Liquid Glass: see-through and picking up the
-  colours behind it, with only the camera area kept black and a soft light along its edge. The
-  Clear to Tinted slider now darkens the glass, so it can be set for bright windows.
+  colours behind it, all the way up to the top edge, with soft dark fades in the two top corners
+  where the notch's shoulders curve out. The Clear to Tinted slider now darkens the glass, so it
+  can be set for bright windows.
 - To show real glass (clear, with what is behind it bending at the edges) the Glass theme's
-  panel becomes the key window once the pointer has been on it, and keeps that while it is open.
+  panel becomes the key window as it opens, and keeps that while it is open.
   The app you were in stays in front. The first key pressed meanwhile is handed back to that app.
 - The installer disk is named after its version ("Dynamic Ledge 1.4.4 Installer"), so it isn't
   mistaken for the app in Finder's sidebar and two open disks don't end up with the same name.

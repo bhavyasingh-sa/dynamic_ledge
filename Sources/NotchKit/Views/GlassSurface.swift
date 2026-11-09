@@ -32,8 +32,7 @@ struct GlassSurface: View, Animatable {
                     ZStack(alignment: .topLeading) {
                         if Self.usesLiquidGlass {
                             tintShade
-                            cameraShade
-                            specularEdge
+                            shoulderShade
                         } else {
                             smoke
                             rim
@@ -79,29 +78,60 @@ struct GlassSurface: View, Animatable {
     private static let fadeStart = 0.62
 
     /// Whether this Mac has Apple's Liquid Glass (macOS 26 and later). There the panel is real
-    /// glass, with only the camera kept black; before that it is smoked glass over a blur.
+    /// glass all over; before that it is smoked glass over a blur with the camera kept black.
     private static var usesLiquidGlass: Bool {
         if #available(macOS 26.0, *) { true } else { false }
     }
 
-    /// How dark the glass is laid over: a light touch when clear, enough to read white text over a
-    /// bright window when fully tinted. The system's own `tint` only colours the glass and does
-    /// not darken it, so this is a separate layer on top.
-    private var glassTintOpacity: Double { 0.56 * tint }
-    /// How far below the camera housing the black fades into glass.
-    private static let cameraFade: CGFloat = 22
-
+    /// How dark the glass is laid over. Never none: the glass brightens what is behind it, so at
+    /// Clear it went milky grey. Fully tinted is enough to read white text over a bright window.
+    /// The system's own `tint` only colours the glass and does not darken it, so this is a
+    /// separate layer on top.
+    private var glassTintOpacity: Double { 0.42 + 0.16 * tint }
+    /// How much of the regular glass (blurry) is laid over the clear glass (sharp): 0 is all clear,
+    /// 1 is all regular.
+    private static let glassSoftness: Double = 0.45
     @ViewBuilder
     private var glass: some View {
         if #available(macOS 26.0, *) {
-            // Liquid Glass, the clear style: it keeps the colours behind it and bends them at the
-            // edges, all drawn by the system.
-            Color.clear
-                .glassEffect(.clear, in: pillShape)
-                .placed(in: layout.pill)
+            // Liquid Glass: the clear style keeps the background sharp and bends it at the edges;
+            // a fraction of the regular style over it softens that, so text under the panel
+            // blurs a little instead of fighting the panel's own, or smearing away. All drawn by
+            // the system.
+            ZStack {
+                Color.clear.glassEffect(.clear, in: pillShape)
+                Color.clear
+                    .glassEffect(.regular, in: pillShape)
+                    .opacity(Self.glassSoftness)
+            }
+            .placed(in: layout.pill)
         } else {
             FrostedGlass(shape: pillShape)
                 .placed(in: layout.pill)
+        }
+    }
+
+    /// The curved shoulders at the top corners are glass too, but glass bends what is behind it
+    /// along its outline, and along those concave curves it smears the menu bar's text into odd
+    /// mirrored fragments. A soft dark fade in the two corners keeps that from showing, and reads
+    /// as the notch's own shoulders.
+    @ViewBuilder
+    private var shoulderShade: some View {
+        if layout.flare > 0.5 {
+            let reach = layout.flare + 30
+            ZStack(alignment: .top) {
+                HStack(spacing: 0) {
+                    RadialGradient(colors: [.black, .black.opacity(0)], center: .topLeading, startRadius: 0, endRadius: reach)
+                        .frame(width: reach, height: reach)
+                    Spacer(minLength: 0)
+                    RadialGradient(colors: [.black, .black.opacity(0)], center: .topTrailing, startRadius: 0, endRadius: reach)
+                        .frame(width: reach, height: reach)
+                }
+                .frame(maxHeight: .infinity, alignment: .top)
+            }
+            .frame(width: max(layout.pill.width, 1), height: max(layout.pill.height, 1), alignment: .top)
+            .clipShape(pillShape)
+            .placed(in: layout.pill)
         }
     }
 
@@ -110,68 +140,6 @@ struct GlassSurface: View, Animatable {
         Color.black.opacity(glassTintOpacity)
             .clipShape(pillShape)
             .placed(in: layout.pill)
-    }
-
-    /// Light on the edge, from the top left and the bottom right the way glass catches it: a crisp
-    /// rim and a soft glow just inside it. The system's own edge is barely visible in a panel that
-    /// is never the key window.
-    private var specularEdge: some View {
-        let height = max(layout.pill.height, 1)
-        let band = min(1, (layout.notchBand + 8) / height)
-        // Keeps the light off the camera housing: it starts below it.
-        let belowCamera = LinearGradient(
-            stops: [
-                .init(color: .clear, location: 0),
-                .init(color: .clear, location: band),
-                .init(color: .white, location: min(1, band + 0.1)),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        let light = LinearGradient(
-            stops: [
-                .init(color: .white.opacity(0.5), location: 0),
-                .init(color: .white.opacity(0.07), location: 0.3),
-                .init(color: .white.opacity(0.04), location: 0.55),
-                .init(color: .white.opacity(0.45), location: 1),
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-        return ZStack {
-            // A faint dark line on the very edge, which the light rim sits against.
-            pillShape.stroke(Color.black.opacity(0.22), lineWidth: 2)
-            pillShape
-                .stroke(light, lineWidth: 6)
-                .blur(radius: 3)
-                .opacity(0.3)
-                .clipShape(pillShape)
-            pillShape.stroke(light, lineWidth: 1)
-        }
-        .mask(belowCamera)
-        .placed(in: layout.pill)
-    }
-
-    /// Black over the camera housing, so the notch itself never shows through, then a short fade
-    /// into the glass. Screens without a notch have nothing to hide, so the glass stays clear.
-    @ViewBuilder
-    private var cameraShade: some View {
-        if layout.notchBand > 0.5 {
-            let height = max(layout.pill.height, 1)
-            let band = min(1, layout.notchBand / height)
-            let fadeEnd = min(1, (layout.notchBand + Self.cameraFade) / height)
-            LinearGradient(
-                stops: [
-                    .init(color: .black, location: 0),
-                    .init(color: .black, location: band),
-                    .init(color: .black.opacity(0), location: max(band, fadeEnd)),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .clipShape(pillShape)
-            .placed(in: layout.pill)
-        }
     }
 
     /// Black over the camera and through the body, then an eased fade to the bottom shade, with
